@@ -22,10 +22,12 @@ ai_win = 0
 
 
 # Predict
-def frequency_predictor(history):
+def frequency_predictor(history, window=5):
     if not history:
         return None
-    return max(set(history), key=history.count)
+
+    recent = history[-window:]
+    return max(set(recent), key=recent.count)
 
 def update_markov(markov, history):
     if len(history) < 2:
@@ -35,31 +37,101 @@ def update_markov(markov, history):
     markov[prev][curr] += 1
 
 
-def markov_predictor(markov, last_move):
+def markov_predictor(markov, last_move, min_samples=3):
     if last_move is None:
         return None
 
     next_moves = markov[last_move]
-    if sum(next_moves.values()) == 0:
+    total = sum(next_moves.values())
+
+    if total < min_samples:
         return None
 
     return max(next_moves, key=next_moves.get)
 
+def win_stay_lose_shift(history, last_result):
+    if not history or last_result is None:
+        return None
+
+    last_move = history[-1]
+
+    if last_result == "win":
+        return last_move
+
+    if last_result == "lose":
+        options = [m for m in choices if m != last_move]
+        return random.choice(options)
+
+    return None
+
+def anti_cycle(history):
+    if len(history) < 2:
+        return None
+
+    a, b = history[-2], history[-1]
+
+    cycle = {
+        ("Rock", "Paper"): "Scissors",
+        ("Paper", "Scissors"): "Rock",
+        ("Scissors", "Rock"): "Paper"
+    }
+
+    return cycle.get((a, b))
+
+def anti_cycle(history):
+    if len(history) < 2:
+        return None
+
+    a, b = history[-2], history[-1]
+
+    cycle = {
+        ("Rock", "Paper"): "Scissors",
+        ("Paper", "Scissors"): "Rock",
+        ("Scissors", "Rock"): "Paper"
+    }
+
+    return cycle.get((a, b))
+
+def choose_predictor(predictions, predictors):
+    best = None
+    best_score = -999
+
+    for name, move in predictions.items():
+        if move is None:
+            continue
+        if predictors[name]["score"] > best_score:
+            best = move
+            best_score = predictors[name]["score"]
+
+    return best
+
+def update_scores(predictions, user_move, predictors):
+    for name, predicted in predictions.items():
+        if predicted == user_move:
+            predictors[name]["score"] += 1
+        else:
+            predictors[name]["score"] -= 1
+
+
 
 # AI decision
-def ai_move(history, markov):
-    prediction = None
-
-    if history:
-        prediction = markov_predictor(markov, history[-1])
-
-    if prediction is None:
-        prediction = frequency_predictor(history)
-
-    if prediction is None:
+def ai_move(history, markov, last_result, predictors, epsilon=0.1):
+    if random.random() < epsilon:
         return random.choice(choices)
 
-    return counter[prediction]
+    predictions = {
+        "markov": markov_predictor(markov, history[-1] if history else None),
+        "frequency": frequency_predictor(history),
+        "win_stay": win_stay_lose_shift(history, last_result),
+        "anti_cycle": anti_cycle(history)
+    }
+
+    predicted_user_move = choose_predictor(predictions, predictors)
+
+    if predicted_user_move is None:
+        return random.choice(choices)
+
+    return counter[predicted_user_move]
 
 
 # Main game
@@ -87,9 +159,9 @@ while True:
 
     print(f"\nScore → User: {user_win} | AI: {ai_win}")
 
-    if user_win == 3:
+    if user_win == 5:
         print("\n🎉 You win the game")
         break
-    elif ai_win == 3:
+    elif ai_win == 5:
         print("\n🤖 AI wins the game")
         break
