@@ -150,7 +150,7 @@ while True:
     update_markov(markov, history)
 
     print(f"\nScore → User: {user_win} | AI: {ai_win}")
-    print(f"Predictor scores: { {k:v['score'] for k,v in predictors.items()} }")
+    #print(f"Predictor scores: { {k:v['score'] for k,v in predictors.items()} }")
 
     if user_win == 5:
         print("\n🎉 You win the game")
